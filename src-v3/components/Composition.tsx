@@ -19,7 +19,10 @@ const NOM = 'Maï Taï'
 
 function webglDisponible() {
   try {
-    return !!document.createElement('canvas').getContext('webgl2')
+    const gl = document.createElement('canvas').getContext('webgl2')
+    // Libère tout de suite ce contexte de test : le navigateur limite le nombre de contextes actifs
+    gl?.getExtension('WEBGL_lose_context')?.loseContext()
+    return !!gl
   } catch {
     return false
   }
@@ -55,6 +58,7 @@ export default function Composition() {
           let raf = 0
           let annule = false
           let chargement = false
+          let generation = 0
 
           const tl = gsap.timeline({
             defaults: { ease: 'none', immediateRender: false },
@@ -101,8 +105,12 @@ export default function Composition() {
           tl.to({}, { duration: 0.5 })
 
           // Rendu : uniquement quand le plateau est à l'écran
+          let dernierePosition = ''
           const placerEtiquettes = (s3d: Scene3D) => {
             const points = s3d.ancres()
+            const cle = points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(';')
+            if (cle === dernierePosition) return // caméra immobile : pas de mise en page inutile
+            dernierePosition = cle
             const colonne = Math.max(...points.map((p) => p.x)) + 46
             etiquettes.forEach((el, i) => {
               el.style.left = `${points[i].x.toFixed(1)}px`
@@ -124,20 +132,46 @@ export default function Composition() {
             raf = 0
           }
 
+          // La scène n'apparaît qu'une fois entièrement préparée (shaders compilés) ; l'image fixe reste en secours
           const charger = () => {
             chargement = true
+            const numero = ++generation
+            const abandon = () => annule || numero !== generation
             import('./cocktail/scene3d')
-              .then(({ creerScene }) => {
-                if (annule) return
-                scene3d = creerScene(canvas, { mobile })
+              .then(({ creerScene }) =>
+                creerScene(canvas, { mobile, largeur: plateau.clientWidth, hauteur: plateau.clientHeight, abandon }),
+              )
+              .then((prete) => {
+                if (abandon()) {
+                  prete.detruire()
+                  return
+                }
+                scene3d = prete
                 scene3d.redimensionner(plateau.clientWidth, plateau.clientHeight)
+                bloc.classList.remove('composition--sans-3d')
                 bloc.classList.add('composition--prete')
               })
               .catch((erreur) => {
+                if (abandon()) return
                 console.warn('Scène 3D indisponible, image fixe affichée à la place.', erreur)
                 bloc.classList.add('composition--sans-3d')
               })
           }
+
+          // Contexte WebGL perdu (pilote graphique réinitialisé, mémoire saturée) : image fixe, puis reconstruction
+          const surPerteContexte = (evenement: Event) => {
+            evenement.preventDefault() // autorise le navigateur à restaurer le contexte
+            generation++
+            scene3d?.detruire()
+            scene3d = null
+            bloc.classList.remove('composition--prete')
+            bloc.classList.add('composition--sans-3d')
+          }
+          const surRestaurationContexte = () => {
+            if (!annule && chargement) charger()
+          }
+          canvas.addEventListener('webglcontextlost', surPerteContexte)
+          canvas.addEventListener('webglcontextrestored', surRestaurationContexte)
 
           const redimension = new ResizeObserver(() => scene3d?.redimensionner(plateau.clientWidth, plateau.clientHeight))
           redimension.observe(plateau)
@@ -163,6 +197,8 @@ export default function Composition() {
             approche.disconnect()
             vue.disconnect()
             redimension.disconnect()
+            canvas.removeEventListener('webglcontextlost', surPerteContexte)
+            canvas.removeEventListener('webglcontextrestored', surRestaurationContexte)
             scene3d?.detruire()
             scene3d = null
             bloc.classList.remove('composition--anime', 'composition--prete', 'composition--sans-3d')

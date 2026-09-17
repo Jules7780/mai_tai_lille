@@ -10,6 +10,7 @@ import {
   rayonExterieur,
   rayonInterieur,
 } from './sequence'
+import { chargerEnvironnement } from './environnement'
 import * as S from './shaders'
 import { textureBambou, textureBois, textureGouttes } from './textures'
 
@@ -20,7 +21,17 @@ export type Scene3D = {
   detruire: () => void
 }
 
+type OptionsScene = {
+  mobile: boolean
+  largeur: number
+  hauteur: number
+  /** Vrai quand la scène n'est plus attendue (démontage, perte du contexte) : la préparation s'arrête. */
+  abandon: () => boolean
+}
+
 const couleurLineaire = (hex: string) => new THREE.Color(hex)
+
+const pause = (ms = 0) => new Promise<void>((resoudre) => setTimeout(resoudre, ms))
 
 const IMPACT = new THREE.Vector2(0.45, 0.35)
 const PAILLE = { bas: new THREE.Vector3(-0.9, 1.7, -0.55), haut: new THREE.Vector3(-3.7, 17.2, 0.95), rayon: 0.24 }
@@ -80,35 +91,43 @@ function geometrieAnanas(R: number) {
   return geo
 }
 
-function environnement(renderer: THREE.WebGLRenderer) {
-  const scene = new THREE.Scene()
-  scene.add(new THREE.Mesh(new THREE.BoxGeometry(80, 50, 80), new THREE.MeshBasicMaterial({ color: '#07130c', side: THREE.BackSide })))
-  const panneau = (l: number, h: number, couleur: string, intensite: number, pos: [number, number, number]) => {
-    const m = new THREE.Mesh(
-      new THREE.PlaneGeometry(l, h),
-      new THREE.MeshBasicMaterial({ color: new THREE.Color(couleur).multiplyScalar(intensite), side: THREE.DoubleSide }),
-    )
-    m.position.set(...pos)
-    m.lookAt(0, 6, 0)
-    scene.add(m)
-  }
-  panneau(7, 30, '#ffe6c4', 7, [-20, 12, 16]) // grande source verticale chaude, avant gauche
-  panneau(2.2, 30, '#ffffff', 5, [16, 12, 20]) // fine bande blanche, avant droite
-  panneau(2.5, 28, '#4dff88', 3, [24, 8, -14]) // néon vert, arrière droit
-  panneau(30, 1.6, '#fff4e6', 3, [0, 24, 2]) // bandeau au plafond
-  panneau(5, 5, '#ff9a3c', 3, [-22, 6, -18]) // lampe ambrée, arrière gauche
-  const pmrem = new THREE.PMREMGenerator(renderer)
-  const cible = pmrem.fromScene(scene, 0.03)
-  pmrem.dispose()
-  return cible
+type Etape = (ms?: number) => Promise<void>
+
+/** Attend, sans bloquer la page, que les shaders lancés en compilation parallèle soient prêts. */
+async function attendreProgrammes(renderer: THREE.WebGLRenderer, etape: Etape) {
+  const debut = performance.now()
+  const prets = () =>
+    (renderer.info.programs ?? []).every((p) => (p as unknown as { isReady: () => boolean }).isReady())
+  while (!prets() && performance.now() - debut < 20000) await etape(32)
 }
 
-export function creerScene(canvas: HTMLCanvasElement, options: { mobile: boolean }): Scene3D {
+/**
+ * Construit la scène par étapes, en rendant la main au navigateur entre chacune, puis compile
+ * tous les shaders avant de la livrer : aucun blocage pendant le défilement.
+ */
+export async function creerScene(canvas: HTMLCanvasElement, options: OptionsScene): Promise<Scene3D> {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' })
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, options.mobile ? 1.5 : 2))
+  // Au-delà de 1,5 le gain visuel est faible et le coût GPU double ; la qualité baisse encore si l'appareil décroche
+  const ratioMax = Math.min(window.devicePixelRatio, 1.5)
+  const ratioMin = Math.min(1, ratioMax) * 0.75
+  let ratio = ratioMax
+  renderer.setPixelRatio(ratio)
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.NoToneMapping
   renderer.transmissionResolutionScale = options.mobile ? 0.6 : 0.85
+
+  const aJeter: Array<{ dispose: () => void }> = []
+  const detruire = () => {
+    aJeter.forEach((o) => o.dispose())
+    renderer.dispose()
+  }
+  const etape = async (ms = 0) => {
+    await pause(ms)
+    if (options.abandon()) {
+      detruire()
+      throw new Error('Préparation de la scène 3D abandonnée')
+    }
+  }
 
   const fondScene = couleurLineaire('#091910')
   const neon = couleurLineaire('#4dff88')
@@ -116,8 +135,13 @@ export function creerScene(canvas: HTMLCanvasElement, options: { mobile: boolean
 
   const scene = new THREE.Scene()
   scene.background = fondScene.clone()
-  const env = environnement(renderer)
-  scene.environment = env.texture
+  const env = await chargerEnvironnement().catch((erreur) => {
+    renderer.dispose()
+    throw erreur
+  })
+  aJeter.push(env)
+  scene.environment = env
+  await etape()
 
   const camera = new THREE.PerspectiveCamera(24, 1, 1, 200)
   const cibleCamera = new THREE.Vector3(0, 7.6, 0)
@@ -128,10 +152,8 @@ export function creerScene(canvas: HTMLCanvasElement, options: { mobile: boolean
   contre.position.set(14, 8, -14)
   scene.add(cle, contre, new THREE.AmbientLight('#1d3326', 0.6))
 
-  const aJeter: Array<{ dispose: () => void }> = [env]
-
   // Définitions nécessaires pour échantillonner la carte PMREM dans les shaders maison
-  const hauteurEnv = (env.texture.image as { height: number }).height
+  const hauteurEnv = env.image.height
   const mipMax = Math.log2(hauteurEnv) - 2
   const definesEnv = {
     ENVMAP_TYPE_CUBE_UV: '',
@@ -166,6 +188,7 @@ export function creerScene(canvas: HTMLCanvasElement, options: { mobile: boolean
   )
   fond.position.set(0, 30, -60)
   scene.add(comptoir, fond)
+  aJeter.push(comptoir.geometry, comptoir.material, fond.geometry, fond.material)
 
   /* Glaçons : répartis en couronne pour laisser passer le filet et la paille */
   const glaces: THREE.Mesh[] = []
@@ -217,7 +240,7 @@ export function creerScene(canvas: HTMLCanvasElement, options: { mobile: boolean
     uPailleB: { value: PAILLE.haut.clone() },
     uPailleR: { value: PAILLE.rayon },
     uPailleVisible: { value: 0 },
-    uEnv: { value: env.texture },
+    uEnv: { value: env },
   }
 
   const geoGlace = new RoundedBoxGeometry(demiGlace * 2, demiGlace * 2, demiGlace * 2, 3, 0.22)
@@ -269,6 +292,7 @@ export function creerScene(canvas: HTMLCanvasElement, options: { mobile: boolean
   const surface = new THREE.Mesh(new THREE.RingGeometry(0.001, 1, 96, 12).rotateX(-Math.PI / 2), matSurface)
   scene.add(paroiLiquide, surface)
   aJeter.push(paroiLiquide.geometry, matParoi, surface.geometry, matSurface)
+  await etape()
 
   /* Verre */
   const gouttes = textureGouttes()
@@ -308,6 +332,7 @@ export function creerScene(canvas: HTMLCanvasElement, options: { mobile: boolean
   const verre = new THREE.Mesh(new THREE.LatheGeometry(profilVerre(), 128), matVerre)
   scene.add(verre)
   aJeter.push(gouttes, verre.geometry, matVerre)
+  await etape()
 
   /* Filet versé */
   const uniformsFlux = {
@@ -398,11 +423,34 @@ export function creerScene(canvas: HTMLCanvasElement, options: { mobile: boolean
     camera.updateProjectionMatrix()
   }
 
+  // Qualité adaptative : si les images s'espacent trop (GPU saturé), on baisse la résolution par paliers
+  const durees: number[] = []
+  let derniereImage = 0
+  const ajusterQualite = () => {
+    const maintenant = performance.now()
+    const duree = maintenant - derniereImage
+    derniereImage = maintenant
+    if (duree > 250) {
+      durees.length = 0 // reprise après une pause du rendu
+      return
+    }
+    durees.push(duree)
+    if (durees.length < 40) return
+    const mediane = durees.sort((a, b) => a - b)[20]
+    durees.length = 0
+    if (mediane > 24 && ratio > ratioMin) {
+      ratio = Math.max(ratioMin, ratio * 0.8)
+      renderer.setPixelRatio(ratio)
+      renderer.setSize(largeur, hauteur, false)
+    }
+  }
+
   const couleurTeinte = new THREE.Color()
   const orangeFinal = couleurLineaire('#e3702a')
   const origine = performance.now()
 
   const rendre = (t: number) => {
+    ajusterQualite()
     const e = etatSequence(t)
     const temps = (performance.now() - origine) / 1000
 
@@ -486,14 +534,29 @@ export function creerScene(canvas: HTMLCanvasElement, options: { mobile: boolean
     })
   }
 
-  const detruire = () => {
-    aJeter.forEach((o) => o.dispose())
-    comptoir.geometry.dispose()
-    ;(comptoir.material as THREE.Material).dispose()
-    fond.geometry.dispose()
-    ;(fond.material as THREE.Material).dispose()
-    renderer.dispose()
-  }
+  redimensionner(options.largeur, options.hauteur)
+
+  /*
+    Compilation de tous les shaders avant le premier affichage, en parallèle quand le navigateur le permet
+    (KHR_parallel_shader_compile). Deux variantes par matériau : l'écran (sRGB) et la passe de transmission
+    du verre (cible linéaire). Les objets encore cachés (filet, paille, ananas, liquide) sont inclus.
+  */
+  const cibleLineaire = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType })
+  renderer.setRenderTarget(cibleLineaire)
+  renderer.compile(scene, camera)
+  renderer.setRenderTarget(null)
+  cibleLineaire.dispose()
+  await etape()
+  renderer.compile(scene, camera)
+  await attendreProgrammes(renderer, etape)
+
+  // Premier rendu à blanc (canvas encore invisible) : envoi des textures et création de la cible de transmission
+  ;[flux, paille, ananas, paroiLiquide, surface].forEach((o) => (o.visible = true))
+  camera.position.set(0, cibleCamera.y, distanceBase)
+  camera.lookAt(cibleCamera)
+  renderer.render(scene, camera)
+  await etape()
+  rendre(0)
 
   return { rendre, redimensionner, ancres, detruire }
 }

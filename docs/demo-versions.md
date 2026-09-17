@@ -6,7 +6,7 @@ Un seul déploiement regroupe les trois versions du site, pour les présenter au
 |---|---|---|---|
 | `/` | 1, Épurée | `main` (9c6b0d5) | `src/` |
 | `/v2/` | 2, Feuilles et relief | `profondeur-jungle` (fd251eb) | `src-v2/` |
-| `/v3/` | 3, Cocktail en 3D | `maitai-3d` (6078354) | `src-v3/` |
+| `/v3/` | 3, Cocktail en 3D | `maitai-3d` (c45b40e) | `src-v3/` |
 
 Chaque dossier est une copie exacte du `src/` de sa branche : les versions ne partagent aucun code et ne peuvent pas se perturber.
 
