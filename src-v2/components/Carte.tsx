@@ -1,4 +1,5 @@
-import { BOISSONS, COCKTAILS, SIGNATURE, TAPAS, type Plat } from '../data/infos'
+import { BOISSONS, COCKTAILS, TAPAS, type Plat } from '../data/infos'
+import Composition from './Composition'
 import Feuille from './Feuille'
 import Plans from './Plans'
 import Soleil from './Soleil'
@@ -45,27 +46,12 @@ export default function Carte() {
             Des petites assiettes thaïes pour grignoter à plusieurs et une carte de cocktails qui sent les vacances.
           </p>
         </header>
+      </div>
 
-        <article className="signature" data-reveal>
-          <Soleil className="signature__soleil" visage={false} />
-          <div className="signature__entete">
-            <p className="signature__label">Cocktail signature</p>
-            <h3 className="signature__nom">{SIGNATURE.nom}</h3>
-            <p className="signature__prix">{SIGNATURE.prix}</p>
-          </div>
-          <div className="signature__corps">
-            <p>
-              Celui qui a donné son nom au bar. Steven a appris à le préparer lors d'un voyage en Thaïlande et le sert
-              aujourd'hui rue Royale.
-            </p>
-            <ul className="ingredients" aria-label="Ingrédients">
-              {SIGNATURE.ingredients.map((ingredient) => (
-                <li key={ingredient}>{ingredient}</li>
-              ))}
-            </ul>
-          </div>
-        </article>
+      {/* Le Maï Taï se compose en 3D au défilement */}
+      <Composition />
 
+      <div className="container">
         {/* Menu plié en trois volets : il s'ouvre en 3D au scroll (accordéon sur tablette et mobile) */}
         <div className="menu">
           <div className="menu__volets">

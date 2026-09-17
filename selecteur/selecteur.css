@@ -1,14 +1,141 @@
-/* Sélecteur de version (démo des maquettes) ------------------------------ */
+/* Démo des maquettes : cadres, écran de chargement, sélecteur de version ------ */
+
+:root {
+  --demo-fond: #06110b;
+  --demo-texte: #eef3ea;
+  --demo-discret: #8fa596;
+  --demo-neon: #4dff88;
+  --demo-police-titre: 'Big Shoulders Display Variable', 'Arial Narrow', sans-serif;
+  --demo-police: 'DM Sans Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --demo-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.demo__cadre {
+  position: fixed;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--demo-fond);
+  visibility: hidden;
+}
+
+/* Pendant le chargement, les deux versions se construisent normalement sous l'écran de chargement */
+.demo--chargement .demo__cadre,
+.demo__cadre--actif {
+  visibility: visible;
+}
+
+.demo__cadre--actif {
+  z-index: 1;
+}
+
+/* Écran de chargement */
+
+.chargement {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(50% 40% at 50% 44%, rgba(77, 255, 136, calc(0.02 + var(--lueur, 0) * 0.07)), transparent 70%),
+    var(--demo-fond);
+  color: var(--demo-texte);
+  font-family: var(--demo-police);
+  transition:
+    opacity 0.7s var(--demo-ease),
+    visibility 0s 0.7s;
+}
+
+.chargement--fini {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.chargement__contenu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.chargement__soleil {
+  width: clamp(116px, 32vw, 168px);
+  height: auto;
+  overflow: visible;
+  stroke: rgba(214, 255, 226, 0.12);
+  filter: drop-shadow(0 0 calc(var(--lueur, 0) * 12px) rgba(77, 255, 136, 0.55));
+}
+
+.chargement__rayon,
+.chargement__coeur {
+  transition: stroke 0.3s ease;
+}
+
+.chargement__rayon--allume,
+.chargement__coeur--allume {
+  stroke: var(--demo-neon);
+}
+
+.chargement__nom {
+  margin: 22px 0 0;
+  font-family: var(--demo-police-titre);
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.chargement__pourcentage {
+  margin: 10px 0 0;
+  color: var(--demo-discret);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Petit grésillement de néon à l'allumage de chaque rayon */
+  .chargement__rayon--allume,
+  .chargement__coeur--allume {
+    animation: demo-gresille 0.45s steps(1);
+  }
+}
+
+@keyframes demo-gresille {
+  0% {
+    stroke-opacity: 1;
+  }
+  25% {
+    stroke-opacity: 0.25;
+  }
+  50% {
+    stroke-opacity: 1;
+  }
+  70% {
+    stroke-opacity: 0.5;
+  }
+  85% {
+    stroke-opacity: 1;
+  }
+}
+
+/* Sélecteur de version */
 
 .selecteur-version {
   position: fixed;
   bottom: max(8px, env(safe-area-inset-bottom));
   left: max(8px, env(safe-area-inset-left));
   z-index: 60;
-  font-family: var(--font-body, system-ui, sans-serif);
+  font-family: var(--demo-police);
 }
 
-.menu-ouvert .selecteur-version {
+.demo--chargement .selecteur-version,
+.demo--menu-ouvert .selecteur-version {
   display: none;
 }
 
@@ -28,12 +155,12 @@
 
 .selecteur-version__pastille::before {
   content: '';
+  box-sizing: border-box;
   width: 26px;
   height: 26px;
   border: 1.5px solid rgba(238, 243, 234, 0.9);
   border-radius: 50%;
   background: rgba(3, 10, 6, 0.55);
-  box-sizing: border-box;
 }
 
 .selecteur-version__pastille:hover,
@@ -43,7 +170,7 @@
 }
 
 .selecteur-version__pastille:focus-visible {
-  outline: 2px solid var(--neon, #4dff88);
+  outline: 2px solid var(--demo-neon);
   outline-offset: -4px;
   border-radius: 50%;
 }
@@ -53,7 +180,7 @@
   bottom: calc(100% + 4px);
   left: 4px;
   width: max-content;
-  min-width: 230px;
+  min-width: 220px;
   padding: 14px 8px 8px;
   border: 1px solid rgba(214, 255, 226, 0.2);
   border-radius: 16px;
@@ -81,7 +208,7 @@
 
 .selecteur-version__titre {
   margin: 0 10px 8px;
-  color: var(--muted, #8fa596);
+  color: var(--demo-discret);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.16em;
@@ -95,48 +222,53 @@
   list-style: none;
 }
 
-.selecteur-version__lien {
+.selecteur-version__choix {
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
   min-height: 44px;
   padding: 6px 12px 6px 10px;
+  border: 0;
   border-radius: 10px;
-  color: var(--text, #eef3ea);
+  background: none;
+  color: var(--demo-texte);
+  font: inherit;
   font-size: 15px;
-  text-decoration: none;
+  text-align: left;
+  cursor: pointer;
   transition: background-color 0.2s ease;
 }
 
-.selecteur-version__lien:hover,
-.selecteur-version__lien:focus-visible {
-  background: var(--neon-soft, rgba(77, 255, 136, 0.14));
+.selecteur-version__choix:hover,
+.selecteur-version__choix:focus-visible {
+  background: rgba(77, 255, 136, 0.14);
 }
 
-.selecteur-version__lien:focus-visible {
-  outline: 2px solid var(--neon, #4dff88);
+.selecteur-version__choix:focus-visible {
+  outline: 2px solid var(--demo-neon);
   outline-offset: -2px;
 }
 
 .selecteur-version__repere {
   flex: none;
+  box-sizing: border-box;
   width: 12px;
   height: 12px;
   border: 1.5px solid rgba(238, 243, 234, 0.45);
   border-radius: 50%;
-  box-sizing: border-box;
 }
 
-.selecteur-version__lien[aria-current='page'] .selecteur-version__repere {
-  border-color: var(--neon, #4dff88);
-  background: var(--neon, #4dff88);
-  box-shadow: 0 0 10px var(--neon-glow, rgba(77, 255, 136, 0.45));
+.selecteur-version__choix[aria-current='true'] .selecteur-version__repere {
+  border-color: var(--demo-neon);
+  background: var(--demo-neon);
+  box-shadow: 0 0 10px rgba(77, 255, 136, 0.45);
 }
 
 .selecteur-version__numero {
   min-width: 1ch;
-  color: var(--neon, #4dff88);
-  font-family: var(--font-display, 'Arial Narrow', sans-serif);
+  color: var(--demo-neon);
+  font-family: var(--demo-police-titre);
   font-size: 20px;
   font-weight: 600;
   line-height: 1;
@@ -147,9 +279,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .chargement,
   .selecteur-version__pastille,
   .selecteur-version__panneau,
-  .selecteur-version__lien {
+  .selecteur-version__choix {
     transition: none;
   }
 }

@@ -10,7 +10,7 @@ gsap.registerPlugin(ScrollTrigger, useGSAP)
 ScrollTrigger.config({ ignoreMobileResize: true })
 
 /*
-  « Le Maï Taï se compose », version 3D temps réel (Three.js, chargé à la demande).
+  « Le Maï Taï se compose », version 3D temps réel (Three.js, préparé dès l'ouverture du site dans la démo).
   La timeline GSAP pilote le texte et les étiquettes ; la scène 3D lit le même temps
   (voir cocktail/sequence.ts) pour rester synchronisée.
 */
@@ -53,15 +53,22 @@ export default function Composition() {
           const etiquettes = q('.etiquette') as HTMLElement[]
           const compteur = q('.composition__compteur-valeur')[0]
 
-          let temps = 0
           let scene3d: Scene3D | null = null
           let raf = 0
           let annule = false
           let chargement = false
           let generation = 0
 
+          // Le lissage (scrub) continue après l'arrêt du défilement : compteur et scène 3D suivent le temps
+          // de la timeline elle-même, pas celui du dernier événement de défilement
           const tl = gsap.timeline({
             defaults: { ease: 'none', immediateRender: false },
+            onUpdate: () => {
+              const temps = tl.time()
+              const verses = temps < T0 + 0.08 ? 0 : Math.min(INGREDIENTS.length, Math.floor((temps - T0 - 0.08) / PAS) + 1)
+              const texte = String(verses).padStart(2, '0')
+              if (compteur.textContent !== texte) compteur.textContent = texte
+            },
             scrollTrigger: {
               trigger: scene,
               start: 'top top',
@@ -70,11 +77,6 @@ export default function Composition() {
               scrub: 0.8,
               anticipatePin: 1,
               invalidateOnRefresh: true,
-              onUpdate: () => {
-                temps = tl.time()
-                const verses = temps < T0 + 0.08 ? 0 : Math.min(INGREDIENTS.length, Math.floor((temps - T0 - 0.08) / PAS) + 1)
-                compteur.textContent = String(verses).padStart(2, '0')
-              },
             },
           })
 
@@ -120,8 +122,9 @@ export default function Composition() {
           }
           const boucle = () => {
             raf = requestAnimationFrame(boucle)
-            if (!scene3d) return
-            scene3d.rendre(temps)
+            // Démo : quand cette version est cachée derrière l'autre (classe posée par selecteur/cadre.ts), rien à dessiner
+            if (!scene3d || document.documentElement.classList.contains('cadre-masque')) return
+            scene3d.rendre(tl.time())
             if (!mobile) placerEtiquettes(scene3d)
           }
           const demarrer = () => {
@@ -176,17 +179,12 @@ export default function Composition() {
           const redimension = new ResizeObserver(() => scene3d?.redimensionner(plateau.clientWidth, plateau.clientHeight))
           redimension.observe(plateau)
 
-          // Chargement anticipé (≈ 1,5 écran avant), rendu seulement quand visible
-          const approche = new IntersectionObserver(
-            ([entree]) => {
-              if (entree.isIntersecting && !chargement) charger()
-            },
-            { rootMargin: '150% 0px' },
-          )
+          // Démo : scène préparée dès l'ouverture du site pour que tout soit prêt avant la présentation ;
+          // rendu seulement quand le plateau est à l'écran
+          charger()
           const vue = new IntersectionObserver(([entree]) => (entree.isIntersecting ? demarrer() : arreter()), {
             rootMargin: '10% 0px',
           })
-          approche.observe(plateau)
           vue.observe(plateau)
 
           document.fonts?.ready.then(() => ScrollTrigger.refresh())
@@ -194,7 +192,6 @@ export default function Composition() {
           return () => {
             annule = true
             arreter()
-            approche.disconnect()
             vue.disconnect()
             redimension.disconnect()
             canvas.removeEventListener('webglcontextlost', surPerteContexte)

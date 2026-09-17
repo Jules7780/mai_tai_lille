@@ -896,68 +896,6 @@ ul {
   background: currentColor;
 }
 
-.signature {
-  position: relative;
-  display: grid;
-  grid-template-columns: 0.9fr 1.1fr;
-  align-items: center;
-  gap: clamp(28px, 5vw, 72px);
-  padding: clamp(28px, 5vw, 60px);
-  border: 1px solid rgba(77, 255, 136, 0.32);
-  border-radius: 28px;
-  background:
-    linear-gradient(135deg, rgba(77, 255, 136, 0.09), transparent 55%),
-    var(--surface);
-  overflow: hidden;
-}
-
-.signature__soleil {
-  position: absolute;
-  top: -90px;
-  right: -90px;
-  width: 340px;
-  height: 340px;
-  color: var(--neon);
-  opacity: 0.08;
-  pointer-events: none;
-}
-
-.signature__entete,
-.signature__corps {
-  position: relative;
-}
-
-.signature__label {
-  color: var(--wood);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-}
-
-.signature__nom {
-  margin-top: 6px;
-  color: var(--neon);
-  font-family: var(--font-display);
-  font-size: clamp(72px, 10vw, 128px);
-  font-weight: 550;
-  line-height: 0.9;
-  text-transform: uppercase;
-  text-shadow: 0 0 36px rgba(77, 255, 136, 0.4);
-}
-
-.signature__prix {
-  margin-top: 10px;
-  font-family: var(--font-display);
-  font-size: 34px;
-  font-weight: 500;
-  line-height: 1;
-}
-
-.signature__corps > p {
-  color: var(--text-soft);
-}
-
 .ingredients {
   display: flex;
   flex-wrap: wrap;
@@ -1032,21 +970,6 @@ ul {
   color: var(--muted);
   font-size: 14px;
   text-align: center;
-}
-
-@media (max-width: 800px) {
-  .signature {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 640px) {
-  .signature__soleil {
-    top: -70px;
-    right: -90px;
-    width: 260px;
-    height: 260px;
-  }
 }
 
 /* Ambiance --------------------------------------------------------------- */
@@ -2293,5 +2216,393 @@ ul {
 
   .hero__visuel::after {
     display: none;
+  }
+}
+
+/* Composition du Maï Taï --------------------------------------------------- */
+/*
+  Règles de base = version statique (animations réduites, écran très bas ou sans WebGL) :
+  image du cocktail terminé, nom allumé, ingrédients en pastilles.
+  .composition--anime (ajoutée en JS) = séquence épinglée avec la scène 3D Three.js.
+*/
+
+.composition {
+  position: relative;
+}
+
+.composition__scene {
+  position: relative;
+}
+
+.composition__grille {
+  display: grid;
+  grid-template-columns: 5fr 6fr;
+  align-items: center;
+  gap: clamp(32px, 5vw, 72px);
+  padding-block: clamp(8px, 3vw, 40px) clamp(24px, 4vw, 56px);
+}
+
+.composition__texte {
+  position: relative;
+  z-index: 2;
+}
+
+.composition__nom {
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-size: clamp(72px, 10vw, 136px);
+  font-weight: 550;
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.cm-lettre {
+  --a: 1;
+  color: rgb(77 255 136 / var(--a));
+  -webkit-text-stroke: 1px rgb(214 255 226 / calc(0.3 * (1 - var(--a))));
+  text-shadow:
+    0 0 calc(var(--a) * 16px) rgb(77 255 136 / calc(var(--a) * 0.45)),
+    0 0 calc(var(--a) * 50px) rgb(77 255 136 / calc(var(--a) * 0.25));
+}
+
+.composition__etat {
+  display: grid;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.composition__etat > * {
+  grid-area: 1 / 1;
+}
+
+.composition__compteur {
+  display: none;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.composition__compteur-valeur {
+  margin-right: 4px;
+  color: var(--neon);
+  font-family: var(--font-display);
+  font-size: 30px;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.composition__prix {
+  color: var(--wood);
+  font-family: var(--font-display);
+  font-size: 42px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.composition__phrase {
+  max-width: 42ch;
+  margin-top: 18px;
+  color: var(--text-soft);
+  text-wrap: pretty;
+}
+
+.composition__indice,
+.composition__etiquettes,
+.composition__fin-mobile,
+.composition__canvas {
+  display: none;
+}
+
+/* Plateau : image statique par défaut */
+
+.composition__plateau {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.composition__stage {
+  position: relative;
+  width: min(100%, 480px);
+}
+
+/* Le fondu vers la couleur de fond est intégré à l'image */
+.composition__poster {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+@media (max-width: 1023px) {
+  .composition__grille {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .composition__phrase {
+    margin-inline: auto;
+  }
+
+  .composition__liste {
+    justify-content: center;
+  }
+}
+
+/* Séquence épinglée avec scène 3D */
+
+.composition--anime .composition__scene {
+  display: flex;
+  align-items: center;
+  height: 100vh;
+  height: 100svh;
+}
+
+.composition--anime .composition__grille {
+  width: min(100% - 2 * var(--gutter), 1320px);
+  padding-block: calc(var(--header-h) + 8px) 16px;
+}
+
+.composition--anime .composition__plateau {
+  align-self: stretch;
+}
+
+.composition--anime .composition__stage {
+  width: 100%;
+  height: calc(100svh - var(--header-h) - 32px);
+}
+
+.composition--anime .composition__canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.8s var(--ease);
+  -webkit-mask-image: radial-gradient(ellipse 58% 62% at 50% 52%, #000 55%, transparent 100%);
+  mask-image: radial-gradient(ellipse 58% 62% at 50% 52%, #000 55%, transparent 100%);
+}
+
+.composition--prete .composition__canvas {
+  opacity: 1;
+}
+
+.composition--anime .composition__poster {
+  display: none;
+}
+
+.composition--sans-3d .composition__poster {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.composition--anime .cm-lettre {
+  --a: 0;
+}
+
+.composition--anime .composition__compteur {
+  display: block;
+}
+
+.composition--anime .composition__prix,
+.composition--anime .composition__phrase,
+.composition--anime .composition__fin-mobile {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.composition--anime .composition__liste {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.composition--anime .composition__indice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 26px;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.composition--anime .composition__indice::before {
+  content: '';
+  flex: none;
+  width: 1px;
+  height: 28px;
+  background: linear-gradient(var(--neon), transparent);
+  transform-origin: top;
+  animation: cm-indice 2s var(--ease) infinite;
+}
+
+@keyframes cm-indice {
+  0% {
+    transform: scaleY(0);
+    opacity: 1;
+  }
+  60% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(1);
+    opacity: 0;
+  }
+}
+
+/* Étiquettes : position calculée à partir de la scène 3D */
+
+.composition--anime .composition__etiquettes {
+  position: absolute;
+  inset: 0;
+  display: block;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+
+.etiquette {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  translate: 0 -50%;
+}
+
+.etiquette__trait {
+  position: relative;
+  flex: none;
+  width: var(--trait, 60px);
+  height: 1px;
+  background: linear-gradient(90deg, rgba(230, 255, 240, 0.7), rgba(230, 255, 240, 0.25));
+  transform-origin: left;
+}
+
+.etiquette__trait::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--couleur);
+  box-shadow: 0 0 0 2px rgba(3, 10, 6, 0.85);
+}
+
+.etiquette__numero {
+  color: var(--neon);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.etiquette__nom {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 500;
+  text-shadow: 0 1px 8px rgba(3, 10, 6, 0.9);
+}
+
+@media (max-width: 1023px) {
+  .composition--anime .composition__grille {
+    grid-template-rows: auto 1fr;
+    gap: 4px;
+    height: 100%;
+    align-content: stretch;
+  }
+
+  .composition--anime .composition__nom {
+    font-size: clamp(56px, 11vw, 100px);
+  }
+
+  .composition--anime .composition__stage {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .composition--anime .composition__plateau {
+    width: 100%;
+    min-height: 0;
+  }
+
+  .composition--anime .composition__indice {
+    justify-content: center;
+    margin-top: 10px;
+  }
+
+  .composition--anime .composition__indice::before {
+    display: none;
+  }
+
+  .composition--anime .composition__phrase {
+    display: none;
+  }
+
+  .composition--anime .composition__fin-mobile {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    display: block;
+    width: max-content;
+    max-width: 80vw;
+    color: var(--text-soft);
+    font-size: 15px;
+    line-height: 1.4;
+    text-align: center;
+    translate: -50% 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .composition--anime .composition__nom {
+    font-size: clamp(50px, 15vw, 76px);
+  }
+
+  .composition--anime .composition__etat {
+    margin-top: 6px;
+  }
+
+  .composition--anime .composition__prix {
+    font-size: 32px;
+  }
+
+  .etiquette {
+    top: auto;
+    bottom: 14px;
+    left: 50%;
+    translate: -50% 0;
+  }
+
+  .etiquette__trait {
+    display: none;
+  }
+
+  .composition--anime .composition__canvas {
+    -webkit-mask-image: radial-gradient(ellipse 70% 62% at 50% 50%, #000 60%, transparent 100%);
+    mask-image: radial-gradient(ellipse 70% 62% at 50% 50%, #000 60%, transparent 100%);
   }
 }
